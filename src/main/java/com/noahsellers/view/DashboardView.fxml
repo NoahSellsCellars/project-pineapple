@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.ComboBox?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.ListView?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.VBox?>
+
+<BorderPane prefHeight="450.0" prefWidth="600.0" xmlns:fx="http://javafx.com/fxml/1" xmlns="http://javafx.com/javafx/26" fx:controller="com.noahsellers.controller.DashboardController">
+
+    <!-- TITLE -->
+
+    <top>
+        <Label style="-fx-font-size: 24px;                       -fx-font-weight: bold;                       -fx-padding: 20px;" text="Study Task Planner" />
+    </top>
+
+
+    <!-- MAIN CONTENT -->
+
+    <center>
+
+        <VBox spacing="15.0">
+
+            <padding>
+                <Insets bottom="10.0" left="20.0" right="20.0" top="10.0" />
+            </padding>
+
+
+            <!-- TASK ENTRY -->
+
+            <Label style="-fx-font-size: 16px;                           -fx-font-weight: bold;" text="Add a Task" />
+
+
+            <HBox spacing="10.0">
+
+                <TextField fx:id="taskField" prefWidth="300.0" promptText="Enter task..." />
+
+                <ComboBox fx:id="priorityCombo" prefWidth="130.0" promptText="Priority" />
+
+                <Button onAction="#handleAdd" style="-fx-background-color: lightgreen;" text="Add" />
+
+            </HBox>
+
+
+            <!-- TASK LIST -->
+
+            <Label style="-fx-font-size: 16px;                           -fx-font-weight: bold;" text="Tasks" />
+
+            <ListView fx:id="taskList" prefHeight="220.0" />
+
+
+            <!-- BUTTONS -->
+
+            <HBox spacing="10.0">
+
+                <Button onAction="#handleComplete" text="Complete Task" />
+
+                <Button onAction="#handleClear" style="-fx-background-color: lightcoral;" text="Clear All" />
+
+            </HBox>
+
+
+            <!-- STATUS -->
+
+            <Label fx:id="statusLabel" style="-fx-font-style: italic;" text="Ready" />
+
+        </VBox>
+
+    </center>
+
+</BorderPane>

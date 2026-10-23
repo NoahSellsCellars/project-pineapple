@@ -2,74 +2,121 @@
 
 <?import javafx.geometry.Insets?>
 <?import javafx.scene.control.Button?>
-<?import javafx.scene.control.ComboBox?>
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.control.ListView?>
-<?import javafx.scene.control.TextField?>
 <?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.ColumnConstraints?>
+<?import javafx.scene.layout.GridPane?>
 <?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.RowConstraints?>
 <?import javafx.scene.layout.VBox?>
 
-<BorderPane prefHeight="450.0" prefWidth="600.0" xmlns:fx="http://javafx.com/fxml/1" xmlns="http://javafx.com/javafx/26" fx:controller="com.noahsellers.controller.DashboardController">
+<BorderPref prefHeight="700.0" prefWidth="900.0" xmlns="http://javafx.com/javafx/26" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.noahsellers.controller.DashboardController">
 
-    <!-- TITLE -->
-
+    <!-- TOP MENU & TITLE -->
     <top>
-        <Label style="-fx-font-size: 24px;                       -fx-font-weight: bold;                       -fx-padding: 20px;" text="Study Task Planner" />
+        <VBox spacing="5.0">
+            <!-- Menu bar mock -->
+            <HBox spacing="15.0" style="-fx-background-color: #f0f0f0; -fx-padding: 5px 10px;">
+                <Label style="-fx-font-weight: bold;" text="Dashboard" />
+                <Label text="Farm Map" />
+                <Label text="Crops" />
+                <Label text="Livestock" />
+                <Label text="Equipment" />
+                <Label text="Drones" />
+                <Label text="Alerts" />
+                <Label text="Reports" />
+                <Label text="Users" />
+            </HBox>
+            
+            <!-- Main Title -->
+            <Label style="-fx-font-size: 24px; -fx-font-weight: bold; -fx-padding: 10px 20px;" text="Farm Overview" alignment="CENTER" />
+        </VBox>
     </top>
 
-
-    <!-- MAIN CONTENT -->
-
+    <!-- MAIN CONTENT GRID -->
     <center>
-
-        <VBox spacing="15.0">
-
+        <GridPane hgap="15.0" vgap="15.0">
             <padding>
-                <Insets bottom="10.0" left="20.0" right="20.0" top="10.0" />
+                <Insets bottom="15.0" left="20.0" right="20.0" top="5.0" />
             </padding>
+            <columnConstraints>
+                <ColumnConstraints percentWidth="50.0" />
+                <ColumnConstraints percentWidth="50.0" />
+            </columnConstraints>
+            <rowConstraints>
+                <RowConstraints percentHeight="35.0" />
+                <RowConstraints percentHeight="35.0" />
+                <RowConstraints percentHeight="30.0" />
+            </rowConstraints>
 
+            <!-- 1. CROP PROGRESS SECTION (Top-Left) -->
+            <VBox spacing="10.0" style="-fx-border-color: black; -fx-border-width: 1; -fx-padding: 10;" GridPane.columnIndex="0" GridPane.rowIndex="0">
+                <Label style="-fx-font-size: 16px; -fx-font-weight: bold;" text="Crop Progress" />
+                <ListView fx:id="cropProgressList" prefHeight="90.0" />
+                <Button onAction="#handleViewProgress" prefWidth="Infinity" text="View Progress" />
+            </VBox>
 
-            <!-- TASK ENTRY -->
+            <!-- 2. METRICS / QUICK STATS SECTION (Top-Right) -->
+            <VBox spacing="8.0" style="-fx-border-color: black; -fx-border-width: 1; -fx-padding: 10;" GridPane.columnIndex="1" GridPane.rowIndex="0">
+                <HBox spacing="10.0">
+                    <VBox alignment="CENTER" style="-fx-border-color: gray; -fx-padding: 5;" HBox.hgrow="ALWAYS">
+                        <Label text="Soil Moisture" />
+                        <Label style="-fx-font-weight: bold; -fx-font-size: 14px;" text="23%" />
+                        <Button onAction="#handleViewSoil" text="View" />
+                    </VBox>
+                    <VBox alignment="CENTER" style="-fx-border-color: gray; -fx-padding: 5;" HBox.hgrow="ALWAYS">
+                        <Label text="Livestock" />
+                        <Label style="-fx-font-weight: bold; -fx-font-size: 14px;" text="124" />
+                        <Button onAction="#handleViewLivestock" text="View" />
+                    </VBox>
+                </HBox>
+                <HBox spacing="10.0">
+                    <VBox alignment="CENTER" style="-fx-border-color: gray; -fx-padding: 5;" HBox.hgrow="ALWAYS">
+                        <Label text="Crop Growth" />
+                        <Label style="-fx-font-weight: bold;" text="On Track" />
+                        <Button onAction="#handleViewCropGrowth" text="View" />
+                    </VBox>
+                    <VBox alignment="CENTER" style="-fx-border-color: gray; -fx-padding: 5;" HBox.hgrow="ALWAYS">
+                        <Label text="Equipment" />
+                        <Label style="-fx-font-weight: bold;" text="32/35" />
+                        <Button onAction="#handleViewEquipment" text="View" />
+                    </VBox>
+                </HBox>
+            </VBox>
 
-            <Label style="-fx-font-size: 16px;                           -fx-font-weight: bold;" text="Add a Task" />
+            <!-- 3. DRONE STATUS SECTION (Middle-Left) -->
+            <VBox spacing="10.0" style="-fx-border-color: black; -fx-border-width: 1; -fx-padding: 10;" GridPane.columnIndex="0" GridPane.rowIndex="1">
+                <Label style="-fx-font-size: 16px; -fx-font-weight: bold;" text="Drone Status" />
+                <ListView fx:id="droneList" prefHeight="90.0" />
+                <Button onAction="#handleManageDrones" prefWidth="Infinity" text="Manage Drones" />
+            </VBox>
 
+            <!-- 4. ALERTS SECTION (Middle-Right) -->
+            <VBox spacing="10.0" style="-fx-border-color: black; -fx-border-width: 1; -fx-padding: 10;" GridPane.columnIndex="1" GridPane.rowIndex="1">
+                <Label style="-fx-font-size: 16px; -fx-font-weight: bold;" text="Alerts" />
+                <ListView fx:id="alertsList" prefHeight="90.0" />
+                <Button onAction="#handleViewAllAlerts" prefWidth="Infinity" text="View All Alerts" />
+            </VBox>
 
-            <HBox spacing="10.0">
+            <!-- 5. FARM MAP SECTION (Bottom spanning full width) -->
+            <VBox spacing="10.0" style="-fx-border-color: black; -fx-border-width: 1; -fx-padding: 10;" GridPane.columnIndex="0" GridPane.columnSpan="2" GridPane.rowIndex="2">
+                <Label style="-fx-font-size: 16px; -fx-font-weight: bold;" text="Farm Map" />
+                <HBox spacing="15.0" alignment="CENTER">
+                    <VBox alignment="CENTER" style="-fx-border-color: lightgray; -fx-padding: 5;" HBox.hgrow="ALWAYS">
+                        <Label style="-fx-font-weight: bold;" text="Field 1" />
+                        <Label fx:id="field1MapLabel" style="-fx-font-style: italic;" text="🍍🍍🍍🍍" />
+                        <Button onAction="#handleViewFullMapField1" text="View Full Map" />
+                    </VBox>
+                    <VBox alignment="CENTER" style="-fx-border-color: lightgray; -fx-padding: 5;" HBox.hgrow="ALWAYS">
+                        <Label style="-fx-font-weight: bold;" text="Field 2" />
+                        <Label fx:id="field2MapLabel" style="-fx-font-style: italic;" text="🍍🍍🍍🍍" />
+                        <Button onAction="#handleViewFullMapField2" text="View Full Map" />
+                    </VBox>
+                </HBox>
+            </VBox>
 
-                <TextField fx:id="taskField" prefWidth="300.0" promptText="Enter task..." />
-
-                <ComboBox fx:id="priorityCombo" prefWidth="130.0" promptText="Priority" />
-
-                <Button onAction="#handleAdd" style="-fx-background-color: lightgreen;" text="Add" />
-
-            </HBox>
-
-
-            <!-- TASK LIST -->
-
-            <Label style="-fx-font-size: 16px;                           -fx-font-weight: bold;" text="Tasks" />
-
-            <ListView fx:id="taskList" prefHeight="220.0" />
-
-
-            <!-- BUTTONS -->
-
-            <HBox spacing="10.0">
-
-                <Button onAction="#handleComplete" text="Complete Task" />
-
-                <Button onAction="#handleClear" style="-fx-background-color: lightcoral;" text="Clear All" />
-
-            </HBox>
-
-
-            <!-- STATUS -->
-
-            <Label fx:id="statusLabel" style="-fx-font-style: italic;" text="Ready" />
-
-        </VBox>
-
+        </GridPane>
     </center>
 
 </BorderPane>

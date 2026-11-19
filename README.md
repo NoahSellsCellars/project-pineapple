@@ -1,0 +1,140 @@
+# AgriFlight Farm Dashboard
+
+AgriFlight is a desktop dashboard for laying out a farm. You add buildings, rooms, livestock, equipment and crops. Each one has a location, dimensions and a price. The dashboard draws the farm on an 800 × 600 map and animates a drone flying over it.
+
+The project is written in Java with Swing. It implements two design patterns:
+
+- **Singleton**: only one dashboard window can exist.
+- **Composite**: items and item-containers are managed through one common interface.
+
+## Repository
+
+GitLab: `<add your team's GitLab repository URL here>`
+
+## Requirements
+
+- Java Development Kit (JDK) 17 or newer, because the code uses records and pattern matching for `instanceof`.
+- A desktop environment that can open windows. The app won't run on a headless server.
+
+No other libraries or build tools are needed. Swing ships with the JDK.
+
+Check your Java version with:
+
+```bash
+java -version
+```
+
+## How to run
+
+The whole application is in one source file, `AgriFlight/FarmDashboard.java`.
+
+### Option 1: run the source file directly (JDK 17+)
+
+From the repository root:
+
+```bash
+java AgriFlight/FarmDashboard.java
+```
+
+### Option 2: compile, then run
+
+```bash
+javac -d out AgriFlight/FarmDashboard.java
+```
+
+```bash
+java -cp out FarmDashboard
+```
+
+### Option 3: from an IDE
+
+Open the project in IntelliJ IDEA, Eclipse or VS Code. Then run the `main` method in `AgriFlight/FarmDashboard.java`.
+
+## Using the dashboard
+
+The window has three areas:
+
+| Area | Purpose |
+| --- | --- |
+| **Hierarchy tree** (left) | Shows the farm as a tree of item-containers and items. Select a node to act on it. |
+| **Farm map** (right, 800 × 600 px) | Draws every item and item-container at its location and scaled to its length and width. Containers are drawn as outlines, items are filled, and the selected element is highlighted in blue. |
+| **Controls** (bottom) | Buttons for managing items and flying the drone. |
+
+### Controls
+
+| Button | Use case | What it does |
+| --- | --- | --- |
+| **Add Item** | Manage farm items | Adds an item (for example a cow or a tractor) to the selected item-container. |
+| **Add Container** | Manage farm items / Create farm layout | Adds an item-container (for example a barn or a room) to the selected item-container. |
+| **Edit Properties** | Manage farm items | Opens a form to change the name, price, location-x, location-y, length, width and height of the selected element. |
+| **Delete** | Manage farm items | Deletes the selected item, or the selected item-container and everything inside it. The root `Farm` can't be deleted. |
+| **Visit Selected** | Visit item | Animates the drone flying from its home position to the selected item or item-container and back. |
+| **Scan Farm** | Scan farm | Animates the drone flying back and forth across the entire farm, then returning home. |
+
+The **Add Item** and **Add Container** buttons are enabled only when an item-container is selected.
+
+### Drone setup
+
+Drone flights start and end at the **Drone** item inside the **Command Center** item-container, which sits directly under the root. If either one is missing, the flight buttons show a message asking you to add them. Any change to the farm while the drone is flying cancels the flight.
+
+### Coordinate system
+
+The map uses screen coordinates. The origin `(0, 0)` is the **top-left** corner. **x** increases to the right and **y** increases **downward**. An element's `location-x` and `location-y` give its top-left corner. Its `length` is drawn horizontally and its `width` vertically. `height` is stored but not drawn, because the map is a top-down view.
+
+## Test scenario
+
+The dashboard opens with the assignment's test scenario already loaded:
+
+```
+Farm (root)
+├── Barn                      (item-container)
+│   ├── Livestock Area        (item-container)
+│   │   └── Cow               (item)
+│   └── Milk Storage          (item)
+├── Storage Building          (item-container)
+│   ├── Tractor               (item)
+│   └── Tiller                (item)
+├── Command Center            (item-container)
+│   └── Drone                 (item)
+└── Soy Crop                  (item)
+```
+
+The map shows all of these as soon as the window opens. To build the scenario by hand instead, delete the sample elements, then use **Add Container** and **Add Item** with the root or a container selected.
+
+## Design patterns
+
+### Singleton: `FarmDashboard`
+
+- `FarmDashboard` is `final` and its constructor is `private`, so no other class can create one.
+- A single eager instance is held in `private static final FarmDashboard INSTANCE`.
+- `FarmDashboard.open()` creates the `JFrame` the first time it's called. Later calls reuse the same window and bring it to the front. All window work runs on the Swing event dispatch thread.
+
+### Composite: `FarmItem`, `Item`, `ItemContainer`
+
+| Class | Role in the pattern | Responsibility |
+| --- | --- | --- |
+| `FarmItem` (interface) | Component | Common interface: `properties()`, `update(...)`, `children()` |
+| `FarmElement` (abstract) | Shared base | Stores the `FarmProperties` and implements property access and updates for both leaves and composites |
+| `Item` | Leaf | A single farm item. `children()` always returns an empty list. |
+| `ItemContainer` | Composite | Holds a list of `FarmItem` children, with `add(...)` and `remove(...)` |
+| `FarmProperties` (record) | Value object | `name`, `price`, `x`, `y`, `length`, `width`, `height`, plus input validation |
+
+The tree view, the property editor and the map rendering all work through the `FarmItem` interface. The map draws any element and then recurses into its `children()`, so items and containers are handled the same way.
+
+### Visualization and animation: `FarmMap`
+
+- `FarmMap` is an 800 × 600 `JPanel` that paints the composite tree recursively.
+- It listens for changes to the tree model and repaints whenever the farm changes.
+- A Swing `Timer` moves the drone along a list of waypoints at a constant speed. A visit flies home → target center → home. A scan flies home, sweeps the farm in rows 50 px apart, then returns home.
+
+## Project structure
+
+```
+project-pineapple/
+├── AgriFlight/
+│   └── FarmDashboard.java   # The complete application (all classes)
+├── src/
+│   └── main/
+│       └── Dashboard.java   # Early JavaFX prototype, not used by the app
+└── README.md
+```

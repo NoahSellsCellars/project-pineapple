@@ -67,7 +67,7 @@ Open the project folder in IntelliJ IDEA, Eclipse or VS Code. It's detected as a
 mvn test
 ```
 
-The tests in `FarmItemTest` cover the Singleton, the Composite classes (including `totalPrice()`), property validation, the preloaded test scenario and the drone's scan route.
+The tests in `FarmItemTest` cover the Singleton, the Composite classes (including `totalPrice()`), property validation, the preloaded test scenario and the drone's scan route. `FarmApiServerTest` starts the drone API on a free port and checks every endpoint.
 
 ## Using the dashboard
 
@@ -75,7 +75,7 @@ The window has four areas:
 
 | Area | Purpose |
 | --- | --- |
-| **Summary bar** (top) | Shows the selected element's name, its own price and its total value (its price plus everything inside it). |
+| **Summary bar** (top) | Shows the selected element's name, its own price and its total value (its price plus everything inside it). The right side shows the drone API's address. |
 | **Hierarchy tree** (left) | Shows the farm as a tree of item-containers and items. Select a node to act on it. |
 | **Farm map** (right, 800 × 600 px) | Draws every item and item-container at its location and scaled to its length and width. Containers are drawn as outlines, items are filled, and the selected element is highlighted in blue. |
 | **Controls** (bottom) | Buttons for managing items and flying the drone. |
@@ -121,6 +121,96 @@ Farm (root)
 
 The sample elements have example prices, so the whole farm has a total value of $197,500.00. The map shows all of these as soon as the window opens. To build the scenario by hand instead, delete the sample elements, then use **Add Container** and **Add Item** with the root or a container selected.
 
+## Drone API
+
+The dashboard runs a small HTTP + JSON API so other programs, such as the code that flies the physical drone, can read and change the farm while the dashboard is open. Changes made through the API show up in the tree and on the map right away, and changes made in the dashboard show up in the API.
+
+- Address: `http://127.0.0.1:8080/api`. The top-right corner of the window shows the address, and the app prints it when it starts.
+- It listens on this computer only (`127.0.0.1`), so other devices on the network can't reach it.
+- To use a different port, run with `-Dagriflight.api.port=9090`. To turn it off, run with `-Dagriflight.api=off`:
+
+```bash
+java -Dagriflight.api.port=9090 -jar target/agriflight-1.0.0.jar
+```
+
+- If the port is already taken, the dashboard still opens, and the top bar says the API is unavailable.
+- The API is not part of the graded design patterns. It uses the same `FarmItem` classes and validation as the dashboard.
+
+### Endpoints
+
+| Method and path | What it does |
+| --- | --- |
+| `GET /api` | Lists the endpoints. |
+| `GET /api/farm` | The whole farm as a tree. Each element has `id`, `type` (`item` or `container`), `name`, `price`, `totalPrice`, `x`, `y`, `length`, `width`, `height` and `children`. |
+| `GET /api/items/{id}` | One element and everything inside it. |
+| `PATCH /api/items/{id}` | Changes any of `name`, `price`, `x`, `y`, `length`, `width`, `height`. Fields you leave out stay the same. |
+| `DELETE /api/items/{id}` | Deletes an element and everything inside it. The root farm can't be deleted. |
+| `POST /api/items/{id}/children` | Adds an element to a container. Requires `type` (`item` or `container`) and `name`. Other fields default to `price` 0, `x` 0, `y` 0, `length` 40, `width` 30, `height` 1. |
+| `GET /api/drone` | The drone's state: `flying`, `status`, `home`, `position` (the simulated drone), `reportedPosition` (the real drone, see below), `route` (the waypoints of the current or last flight) and `nextWaypoint`. |
+| `PUT /api/drone/position` | Reports where the real drone is, as `{"x": …, "y": …}` in map coordinates. The map shows it as an orange "Live drone" marker. |
+| `DELETE /api/drone/position` | Removes the "Live drone" marker. |
+| `POST /api/drone/visit` | Starts a visit flight to an element, as `{"id": …}`, and returns the drone's state including the route. |
+| `POST /api/drone/scan` | Starts a scan of the whole farm and returns the drone's state including the route. |
+
+Ids are numbered depth-first starting at 1 when the dashboard opens (in the test scenario: 1 Farm, 2 Barn, 3 Livestock Area, 4 Cow, …). They stay the same while the dashboard is running, and new elements get the next free number. Get them from `GET /api/farm` rather than hard-coding them.
+
+Coordinates use the map's system: the origin is the top-left corner, x increases to the right and y increases downward, in map pixels (0–800 by 0–600).
+
+### Responses and errors
+
+Successful requests return `200` (or `201` after adding an element, `204` after deleting one) with JSON. Errors return a JSON object with an `error` message, using the same validation messages as the dashboard:
+
+| Status | Meaning |
+| --- | --- |
+| `400` | Invalid JSON, an unknown field, or an invalid value (for example `{"error": "Price can't be negative."}`) |
+| `404` | No element with that id, or no such endpoint |
+| `405` | Wrong method for the endpoint |
+| `409` | The request conflicts with the farm's state, such as deleting the root, adding to an item, or starting a flight while one is running |
+
+### Examples
+
+```bash
+curl http://127.0.0.1:8080/api/farm
+```
+
+```bash
+curl -X PATCH http://127.0.0.1:8080/api/items/4 -d '{"name": "Bessie", "price": 1750}'
+```
+
+```bash
+curl -X POST http://127.0.0.1:8080/api/items/2/children -d '{"type": "item", "name": "Hay Bales", "price": 300, "x": 40, "y": 240, "length": 120, "width": 60}'
+```
+
+```bash
+curl -X PUT http://127.0.0.1:8080/api/drone/position -d '{"x": 560, "y": 420}'
+```
+
+```bash
+curl -X POST http://127.0.0.1:8080/api/drone/scan
+```
+
+The same calls from Python, using only the standard library:
+
+```python
+import json
+from urllib.request import Request, urlopen
+
+API = "http://127.0.0.1:8080/api"
+
+def call(method, path, body=None):
+    data = None if body is None else json.dumps(body).encode()
+    with urlopen(Request(API + path, data=data, method=method)) as response:
+        text = response.read()
+        return json.loads(text) if text else None
+
+route = call("POST", "/drone/scan")["route"]   # waypoints to fly the real drone along
+for point in route:
+    # ... fly the real drone to point["x"], point["y"] ...
+    call("PUT", "/drone/position", {"x": point["x"], "y": point["y"]})
+```
+
+An error status raises `urllib.error.HTTPError`. Its `.read()` returns the JSON with the `error` message.
+
 ## Design patterns
 
 ### Singleton: `FarmDashboard`
@@ -164,7 +254,11 @@ project-pineapple/
     │   ├── FarmElement.java                 # Shared base class for leaf and composite
     │   ├── Item.java                        # Composite: leaf
     │   ├── ItemContainer.java               # Composite: composite
-    │   └── FarmProperties.java              # Element properties and validation
+    │   ├── FarmProperties.java              # Element properties and validation
+    │   ├── FarmEditor.java                  # Applies changes to the farm and the tree view together
+    │   ├── FarmApiServer.java               # Drone API (local HTTP + JSON)
+    │   └── Json.java                        # Small JSON reader and writer for the API
     └── test/java/com/agriflight/
-        └── FarmItemTest.java                # Unit tests
+        ├── FarmItemTest.java                # Pattern, validation and scenario tests
+        └── FarmApiServerTest.java           # Drone API tests
 ```

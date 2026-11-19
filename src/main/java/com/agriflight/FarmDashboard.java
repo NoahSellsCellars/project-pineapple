@@ -4,6 +4,7 @@ import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.GridLayout;
 import java.awt.event.ActionEvent;
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
@@ -70,6 +71,7 @@ public final class FarmDashboard {
 
         ItemContainer farm = sampleFarm();
         DefaultTreeModel model = new DefaultTreeModel(treeNode(farm));
+        FarmEditor editor = new FarmEditor(farm, model);
         JTree hierarchy = new JTree(model);
         for (int row = 0; row < hierarchy.getRowCount(); row++) {
             hierarchy.expandRow(row);
@@ -89,7 +91,7 @@ public final class FarmDashboard {
             changeCommands.add(new AbstractAction("Change " + PROPERTY_NAMES[field]) {
                 @Override
                 public void actionPerformed(ActionEvent event) {
-                    changeProperty(hierarchy, model, property);
+                    changeProperty(hierarchy, editor, property);
                 }
             });
         }
@@ -148,8 +150,8 @@ public final class FarmDashboard {
                 refreshSummary.run();
             }
         });
-        addItem.addActionListener(event -> add(hierarchy, model, false));
-        addContainer.addActionListener(event -> add(hierarchy, model, true));
+        addItem.addActionListener(event -> add(hierarchy, editor, false));
+        addContainer.addActionListener(event -> add(hierarchy, editor, true));
         delete.addActionListener(event -> {
             var selected = (DefaultMutableTreeNode) hierarchy.getLastSelectedPathComponent();
             if (selected == null || !(selected.getParent() instanceof DefaultMutableTreeNode parent)) {
@@ -157,17 +159,16 @@ public final class FarmDashboard {
             }
             if (JOptionPane.showConfirmDialog(hierarchy, "Delete " + selected + " and any contents?",
                     "Delete Farm Element", JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION) {
-                ((ItemContainer) parent.getUserObject()).remove((FarmItem) selected.getUserObject());
-                model.removeNodeFromParent(selected);
+                editor.remove((FarmItem) selected.getUserObject());
                 hierarchy.setSelectionPath(new TreePath(parent.getPath()));
             }
         });
-        FarmMap map = new FarmMap(farm, model, hierarchy);
+        JLabel flightStatus = new JLabel("Drone ready");
+        FarmMap map = new FarmMap(farm, model, hierarchy, flightStatus);
         JButton visit = new JButton("Visit Selected");
         JButton scan = new JButton("Scan Farm");
-        JLabel flightStatus = new JLabel("Drone ready");
-        visit.addActionListener(event -> map.startFlight(false, flightStatus));
-        scan.addActionListener(event -> map.startFlight(true, flightStatus));
+        visit.addActionListener(event -> map.startVisit(map.selected()));
+        scan.addActionListener(event -> map.startScan());
         controls.add(visit);
         controls.add(scan);
         controls.add(flightStatus);
@@ -176,7 +177,12 @@ public final class FarmDashboard {
         treeScroll.setPreferredSize(new Dimension(230, FarmMap.HEIGHT));
         JSplitPane workspace = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT,
                 treeScroll, new JScrollPane(map));
-        window.add(selectionSummary, BorderLayout.NORTH);
+        JLabel apiStatus = new JLabel(startApi(editor, map));
+        apiStatus.setBorder(BorderFactory.createEmptyBorder(6, 10, 6, 10));
+        JPanel topBar = new JPanel(new BorderLayout());
+        topBar.add(selectionSummary, BorderLayout.CENTER);
+        topBar.add(apiStatus, BorderLayout.EAST);
+        window.add(topBar, BorderLayout.NORTH);
         window.add(workspace, BorderLayout.CENTER);
         window.add(controls, BorderLayout.SOUTH);
         window.pack();
@@ -187,7 +193,27 @@ public final class FarmDashboard {
         return window;
     }
 
-    private static void add(JTree hierarchy, DefaultTreeModel model, boolean container) {
+    /**
+     * Starts the local API for other programs, such as the drone controller. Run with
+     * -Dagriflight.api=off to disable it, or -Dagriflight.api.port=N to change the port.
+     */
+    private static String startApi(FarmEditor editor, FarmMap map) {
+        if ("off".equalsIgnoreCase(System.getProperty("agriflight.api"))) {
+            return "API off";
+        }
+        int port = Integer.getInteger("agriflight.api.port", FarmApiServer.DEFAULT_PORT);
+        try {
+            int bound = new FarmApiServer(editor, map).start(port);
+            String url = "http://127.0.0.1:" + bound + "/api";
+            System.out.println("AgriFlight API listening at " + url);
+            return "API: " + url;
+        } catch (IOException | RuntimeException exception) {
+            System.err.println("AgriFlight API not started on port " + port + ": " + exception.getMessage());
+            return "API unavailable (port " + port + " in use)";
+        }
+    }
+
+    private static void add(JTree hierarchy, FarmEditor editor, boolean container) {
         var selected = (DefaultMutableTreeNode) hierarchy.getLastSelectedPathComponent();
         if (selected == null || !(selected.getUserObject() instanceof ItemContainer parent)) {
             return;
@@ -197,9 +223,7 @@ public final class FarmDashboard {
                 new FarmProperties("", BigDecimal.ZERO, 0, 0, 40, 30, 1));
         if (properties != null) {
             FarmItem child = container ? new ItemContainer(properties) : new Item(properties);
-            parent.add(child);
-            var node = treeNode(child);
-            model.insertNodeInto(node, selected, selected.getChildCount());
+            var node = editor.add(parent, child);
             var path = new TreePath(node.getPath());
             hierarchy.setSelectionPath(path);
             hierarchy.scrollPathToVisible(path);
@@ -207,7 +231,7 @@ public final class FarmDashboard {
     }
 
     /** Changes one property of the selected item or item-container, such as its name or price. */
-    private static void changeProperty(JTree hierarchy, DefaultTreeModel model, int property) {
+    private static void changeProperty(JTree hierarchy, FarmEditor editor, int property) {
         var selected = (DefaultMutableTreeNode) hierarchy.getLastSelectedPathComponent();
         if (selected == null) {
             return;
@@ -225,8 +249,7 @@ public final class FarmDashboard {
             }
             values[property] = input;
             try {
-                item.update(FarmProperties.parse(values));
-                model.nodeChanged(selected);
+                editor.update(item, FarmProperties.parse(values));
                 return;
             } catch (IllegalArgumentException exception) {
                 JOptionPane.showMessageDialog(hierarchy, exception.getMessage(),
@@ -262,7 +285,7 @@ public final class FarmDashboard {
         return null;
     }
 
-    private static String[] values(FarmProperties properties) {
+    static String[] values(FarmProperties properties) {
         return new String[] {properties.name(), properties.price().toPlainString(), "" + properties.x(),
                 "" + properties.y(), "" + properties.length(), "" + properties.width(), "" + properties.height()};
     }

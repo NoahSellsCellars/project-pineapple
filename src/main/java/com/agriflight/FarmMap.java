@@ -21,6 +21,7 @@ import javax.swing.event.TreeModelListener;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeModel;
 
+/** The 800 × 600 farm map: draws the composite tree and animates the drone. */
 final class FarmMap extends JPanel implements TreeModelListener {
     static final int WIDTH = 800;
     static final int HEIGHT = 600;
@@ -30,22 +31,25 @@ final class FarmMap extends JPanel implements TreeModelListener {
     private static final Color CONTAINER = new Color(58, 95, 74);
     private static final Color ITEM = new Color(192, 221, 169);
     private static final Color SELECTION = new Color(31, 103, 186);
+    private static final Color REPORTED = new Color(214, 120, 30);
+
+    private static final double FLIGHT_SPEED = 480;
 
     private final ItemContainer farm;
+    private final JLabel status;
     private FarmItem selected;
     private final FarmItem originalCommandCenter;
     private final FarmItem originalDrone;
     private final Timer flightTimer = new Timer(16, event -> advanceFlight());
     private List<Point2D.Double> route = List.of();
     private Point2D.Double dronePosition;
+    private Point2D.Double reportedPosition;
     private int nextWaypoint;
     private long lastTick;
-    private JLabel flightStatus;
 
-    private static final double FLIGHT_SPEED = 480;
-
-    FarmMap(ItemContainer farm, DefaultTreeModel model, JTree hierarchy) {
+    FarmMap(ItemContainer farm, DefaultTreeModel model, JTree hierarchy, JLabel status) {
         this.farm = farm;
+        this.status = status;
         originalCommandCenter = namedChild(farm, "Command Center", true);
         originalDrone = namedChild(originalCommandCenter, "Drone", false);
         setPreferredSize(new Dimension(WIDTH, HEIGHT));
@@ -57,26 +61,76 @@ final class FarmMap extends JPanel implements TreeModelListener {
         });
     }
 
-    void startFlight(boolean scan, JLabel status) {
+    FarmItem selected() {
+        return selected;
+    }
+
+    /** Flies home → target → home. Returns null if the flight started, otherwise the reason it didn't. */
+    String startVisit(FarmItem target) {
+        return startFlight(false, target);
+    }
+
+    /** Sweeps the whole farm and returns home. Returns null if the flight started, otherwise the reason it didn't. */
+    String startScan() {
+        return startFlight(true, null);
+    }
+
+    private String startFlight(boolean scan, FarmItem target) {
         if (flightTimer.isRunning()) {
-            return;
+            return "The drone is already flying";
         }
         Point2D.Double home = droneHome();
         if (home == null) {
-            status.setText("Add a Drone to the Command Center");
-            return;
+            return report("Add a Drone to the Command Center");
         }
-        if (!scan && (selected == null || selected == farm)) {
-            status.setText("Select an item or container to visit");
-            return;
+        if (!scan && (target == null || target == farm)) {
+            return report("Select an item or container to visit");
         }
-        flightStatus = status;
-        route = scan ? scanRoute(home) : List.of(home, center(selected), home);
+        route = scan ? scanRoute(home) : List.of(home, center(target), home);
         dronePosition = home;
         nextWaypoint = 1;
         lastTick = System.nanoTime();
-        status.setText(scan ? "Scanning farm" : "Flying to " + selected.properties().name());
+        status.setText(scan ? "Scanning farm" : "Flying to " + target.properties().name());
         flightTimer.start();
+        repaint();
+        return null;
+    }
+
+    private String report(String message) {
+        status.setText(message);
+        return message;
+    }
+
+    boolean isFlying() {
+        return flightTimer.isRunning();
+    }
+
+    String status() {
+        return status.getText();
+    }
+
+    /** The waypoints of the current or most recent flight. */
+    List<Point2D.Double> route() {
+        return route;
+    }
+
+    /** Index in {@link #route()} of the waypoint the drone is flying toward. */
+    int nextWaypoint() {
+        return nextWaypoint;
+    }
+
+    /** Where the simulated drone is now: on its route while flying, otherwise at home. */
+    Point2D.Double dronePosition() {
+        return flightTimer.isRunning() ? dronePosition : droneHome();
+    }
+
+    /** Where the real drone says it is, or null if nothing has been reported. */
+    Point2D.Double reportedPosition() {
+        return reportedPosition;
+    }
+
+    void setReportedPosition(Point2D.Double position) {
+        reportedPosition = position;
         repaint();
     }
 
@@ -112,7 +166,7 @@ final class FarmMap extends JPanel implements TreeModelListener {
         }
         if (nextWaypoint == route.size()) {
             flightTimer.stop();
-            flightStatus.setText("Flight complete. Drone at home.");
+            status.setText("Flight complete. Drone at home.");
         }
         repaint();
     }
@@ -148,7 +202,7 @@ final class FarmMap extends JPanel implements TreeModelListener {
     private void farmChanged() {
         if (flightTimer.isRunning()) {
             flightTimer.stop();
-            flightStatus.setText("Flight canceled because the farm changed");
+            status.setText("Flight canceled because the farm changed");
         }
         repaint();
     }
@@ -175,12 +229,18 @@ final class FarmMap extends JPanel implements TreeModelListener {
                 plot.setStroke(new BasicStroke(2));
                 plot.draw(bounds(selected));
             }
-            Point2D.Double position = flightTimer.isRunning() ? dronePosition : droneHome();
+            Point2D.Double position = dronePosition();
             if (position != null) {
                 plot.setColor(Color.WHITE);
                 plot.fill(new Ellipse2D.Double(position.x - 8, position.y - 8, 16, 16));
                 plot.setColor(SELECTION);
                 plot.fill(new Ellipse2D.Double(position.x - 6, position.y - 6, 12, 12));
+            }
+            if (reportedPosition != null) {
+                plot.setColor(REPORTED);
+                plot.setStroke(new BasicStroke(3));
+                plot.draw(new Ellipse2D.Double(reportedPosition.x - 10, reportedPosition.y - 10, 20, 20));
+                plot.drawString("Live drone", (float) reportedPosition.x + 14, (float) reportedPosition.y + 4);
             }
         } finally {
             plot.dispose();

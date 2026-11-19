@@ -31,7 +31,7 @@ mvn -version
 
 ## How to run
 
-The project uses the standard Maven layout. The main class is `com.noahsellers.agriflight.FarmDashboard`.
+The project uses the standard Maven layout. The main class is `com.agriflight.FarmDashboard`.
 
 ### Option 1: build with Maven, then run the jar
 
@@ -50,11 +50,11 @@ java -jar target/agriflight-1.0.0.jar
 ### Option 2: compile with `javac` (no Maven)
 
 ```bash
-javac -d out src/main/java/com/noahsellers/agriflight/*.java
+javac -d out src/main/java/com/agriflight/*.java
 ```
 
 ```bash
-java -cp out com.noahsellers.agriflight.FarmDashboard
+java -cp out com.agriflight.FarmDashboard
 ```
 
 ### Option 3: from an IDE
@@ -153,7 +153,7 @@ project-pineapple/
 ├── pom.xml                                  # Maven build (Java 17, JUnit 5+ tests, runnable jar)
 ├── README.md
 └── src/
-    ├── main/java/com/noahsellers/agriflight/
+    ├── main/java/com/agriflight/
     │   ├── FarmDashboard.java               # Singleton: the dashboard window and controls, entry point
     │   ├── FarmMap.java                     # 800 × 600 map rendering and drone animation
     │   ├── FarmItem.java                    # Composite: component interface
@@ -161,6 +161,6 @@ project-pineapple/
     │   ├── Item.java                        # Composite: leaf
     │   ├── ItemContainer.java               # Composite: composite
     │   └── FarmProperties.java              # Element properties and validation
-    └── test/java/com/noahsellers/agriflight/
+    └── test/java/com/agriflight/
         └── FarmItemTest.java                # Unit tests
 ```

@@ -1,4 +1,4 @@
-package com.noahsellers.agriflight;
+package com.agriflight;
 
 abstract class FarmElement implements FarmItem {
     private FarmProperties properties;

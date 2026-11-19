@@ -1,4 +1,4 @@
-package com.noahsellers.agriflight;
+package com.agriflight;
 
 import java.math.BigDecimal;
 

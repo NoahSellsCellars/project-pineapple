@@ -1,4 +1,4 @@
-package com.noahsellers.agriflight;
+package com.agriflight;
 
 import java.awt.BasicStroke;
 import java.awt.Color;

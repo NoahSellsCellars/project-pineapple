@@ -4,7 +4,7 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>com.noahsellers</groupId>
+    <groupId>com.agriflight</groupId>
     <artifactId>agriflight</artifactId>
     <version>1.0.0</version>
     <packaging>jar</packaging>
@@ -14,7 +14,7 @@
     <properties>
         <maven.compiler.release>17</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <main.class>com.noahsellers.agriflight.FarmDashboard</main.class>
+        <main.class>com.agriflight.FarmDashboard</main.class>
     </properties>
 
     <dependencies>

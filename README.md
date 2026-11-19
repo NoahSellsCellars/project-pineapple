@@ -67,14 +67,15 @@ Open the project folder in IntelliJ IDEA, Eclipse or VS Code. It's detected as a
 mvn test
 ```
 
-The tests in `FarmItemTest` cover the Composite classes, property validation, the preloaded test scenario and the drone's scan route.
+The tests in `FarmItemTest` cover the Singleton, the Composite classes (including `totalPrice()`), property validation, the preloaded test scenario and the drone's scan route.
 
 ## Using the dashboard
 
-The window has three areas:
+The window has four areas:
 
 | Area | Purpose |
 | --- | --- |
+| **Summary bar** (top) | Shows the selected element's name, its own price and its total value (its price plus everything inside it). |
 | **Hierarchy tree** (left) | Shows the farm as a tree of item-containers and items. Select a node to act on it. |
 | **Farm map** (right, 800 × 600 px) | Draws every item and item-container at its location and scaled to its length and width. Containers are drawn as outlines, items are filled, and the selected element is highlighted in blue. |
 | **Controls** (bottom) | Buttons for managing items and flying the drone. |
@@ -85,7 +86,7 @@ The window has three areas:
 | --- | --- | --- |
 | **Add Item** | Manage farm items | Adds an item (for example a cow or a tractor) to the selected item-container. |
 | **Add Container** | Manage farm items / Create farm layout | Adds an item-container (for example a barn or a room) to the selected item-container. |
-| **Edit Properties** | Manage farm items | Opens a form to change the name, price, location-x, location-y, length, width and height of the selected element. |
+| **Edit ▾** | Manage farm items | Opens a menu with a separate command for each property of the selected element: **Change Name**, **Change Price**, **Change Location-X**, **Change Location-Y**, **Change Length**, **Change Width** and **Change Height**. Each command asks for the new value and rejects invalid input. The same commands are in the window's **Edit** menu. |
 | **Delete** | Manage farm items | Deletes the selected item, or the selected item-container and everything inside it. The root `Farm` can't be deleted. |
 | **Visit Selected** | Visit item | Animates the drone flying from its home position to the selected item or item-container and back. |
 | **Scan Farm** | Scan farm | Animates the drone flying back and forth across the entire farm, then returning home. |
@@ -118,7 +119,7 @@ Farm (root)
 └── Soy Crop                  (item)
 ```
 
-The map shows all of these as soon as the window opens. To build the scenario by hand instead, delete the sample elements, then use **Add Container** and **Add Item** with the root or a container selected.
+The sample elements have example prices, so the whole farm has a total value of $197,500.00. The map shows all of these as soon as the window opens. To build the scenario by hand instead, delete the sample elements, then use **Add Container** and **Add Item** with the root or a container selected.
 
 ## Design patterns
 
@@ -126,19 +127,22 @@ The map shows all of these as soon as the window opens. To build the scenario by
 
 - `FarmDashboard` is `final` and its constructor is `private`, so no other class can create one.
 - A single eager instance is held in `private static final FarmDashboard INSTANCE`.
-- `FarmDashboard.open()` creates the `JFrame` the first time it's called. Later calls reuse the same window and bring it to the front. All window work runs on the Swing event dispatch thread.
+- `FarmDashboard.getInstance()` is the only way to get the dashboard, and it always returns that same instance.
+- `getInstance().open()` creates the `JFrame` the first time it's called. Later calls reuse the same window and bring it to the front. All window work runs on the Swing event dispatch thread.
 
 ### Composite: `FarmItem`, `Item`, `ItemContainer`
 
 | Class | Role in the pattern | Responsibility |
 | --- | --- | --- |
-| `FarmItem` (interface) | Component | Common interface: `properties()`, `update(...)`, `children()` |
+| `FarmItem` (interface) | Component | Common interface: `properties()`, `update(...)`, `children()`, `totalPrice()` |
 | `FarmElement` (abstract) | Shared base | Stores the `FarmProperties` and implements property access and updates for both leaves and composites |
-| `Item` | Leaf | A single farm item. `children()` always returns an empty list. |
-| `ItemContainer` | Composite | Holds a list of `FarmItem` children, with `add(...)` and `remove(...)` |
+| `Item` | Leaf | A single farm item. `children()` always returns an empty list, and `totalPrice()` returns its own price. |
+| `ItemContainer` | Composite | Holds a list of `FarmItem` children, with `add(...)` and `remove(...)`. `totalPrice()` returns its own price plus the `totalPrice()` of each child. |
 | `FarmProperties` (record) | Value object | `name`, `price`, `x`, `y`, `length`, `width`, `height`, plus input validation |
 
-The tree view, the property editor and the map rendering all work through the `FarmItem` interface. The map draws any element and then recurses into its `children()`, so items and containers are handled the same way.
+`totalPrice()` is the pattern's key operation. A client calls it the same way on any element, and a container answers by delegating to its children, recursively, without the client knowing whether it holds a leaf or a whole subtree. The summary bar uses it to show the value of whatever is selected.
+
+The tree view, the change commands and the map rendering all work through the `FarmItem` interface. The map draws any element and then recurses into its `children()`, so items and containers are handled the same way.
 
 ### Visualization and animation: `FarmMap`
 

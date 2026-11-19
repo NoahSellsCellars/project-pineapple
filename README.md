@@ -9,46 +9,65 @@ The project is written in Java with Swing. It implements two design patterns:
 
 ## Repository
 
-GitLab: `<add your team's GitLab repository URL here>`
+GitHub: <https://github.com/NoahSellsCellars/project-pineapple>
 
 ## Requirements
 
 - Java Development Kit (JDK) 17 or newer, because the code uses records and pattern matching for `instanceof`.
+- [Apache Maven](https://maven.apache.org/) 3.6 or newer, to build and test the project.
 - A desktop environment that can open windows. The app won't run on a headless server.
 
-No other libraries or build tools are needed. Swing ships with the JDK.
+The app itself has no runtime dependencies, because Swing ships with the JDK. JUnit is used only for the tests.
 
-Check your Java version with:
+Check your versions with:
 
 ```bash
 java -version
 ```
 
+```bash
+mvn -version
+```
+
 ## How to run
 
-The whole application is in one source file, `AgriFlight/FarmDashboard.java`.
+The project uses the standard Maven layout. The main class is `com.noahsellers.agriflight.FarmDashboard`.
 
-### Option 1: run the source file directly (JDK 17+)
+### Option 1: build with Maven, then run the jar
 
 From the repository root:
 
 ```bash
-java AgriFlight/FarmDashboard.java
-```
-
-### Option 2: compile, then run
-
-```bash
-javac -d out AgriFlight/FarmDashboard.java
+mvn package
 ```
 
 ```bash
-java -cp out FarmDashboard
+java -jar target/agriflight-1.0.0.jar
+```
+
+`mvn package` compiles the code, runs the unit tests and builds the jar in `target/`.
+
+### Option 2: compile with `javac` (no Maven)
+
+```bash
+javac -d out src/main/java/com/noahsellers/agriflight/*.java
+```
+
+```bash
+java -cp out com.noahsellers.agriflight.FarmDashboard
 ```
 
 ### Option 3: from an IDE
 
-Open the project in IntelliJ IDEA, Eclipse or VS Code. Then run the `main` method in `AgriFlight/FarmDashboard.java`.
+Open the project folder in IntelliJ IDEA, Eclipse or VS Code. It's detected as a Maven project from `pom.xml`. Then run the `main` method in `FarmDashboard`.
+
+### Running the tests
+
+```bash
+mvn test
+```
+
+The tests in `FarmItemTest` cover the Composite classes, property validation, the preloaded test scenario and the drone's scan route.
 
 ## Using the dashboard
 
@@ -131,10 +150,17 @@ The tree view, the property editor and the map rendering all work through the `F
 
 ```
 project-pineapple/
-├── AgriFlight/
-│   └── FarmDashboard.java   # The complete application (all classes)
-├── src/
-│   └── main/
-│       └── Dashboard.java   # Early JavaFX prototype, not used by the app
-└── README.md
+├── pom.xml                                  # Maven build (Java 17, JUnit 5+ tests, runnable jar)
+├── README.md
+└── src/
+    ├── main/java/com/noahsellers/agriflight/
+    │   ├── FarmDashboard.java               # Singleton: the dashboard window and controls, entry point
+    │   ├── FarmMap.java                     # 800 × 600 map rendering and drone animation
+    │   ├── FarmItem.java                    # Composite: component interface
+    │   ├── FarmElement.java                 # Shared base class for leaf and composite
+    │   ├── Item.java                        # Composite: leaf
+    │   ├── ItemContainer.java               # Composite: composite
+    │   └── FarmProperties.java              # Element properties and validation
+    └── test/java/com/noahsellers/agriflight/
+        └── FarmItemTest.java                # Unit tests
 ```

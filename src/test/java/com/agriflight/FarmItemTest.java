@@ -5,12 +5,14 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.awt.geom.Point2D;
 import java.lang.reflect.Modifier;
 import java.math.BigDecimal;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
+
+import javafx.geometry.Point2D;
+import javafx.scene.control.TreeItem;
 
 class FarmItemTest {
     private static FarmProperties props(String name) {
@@ -83,8 +85,8 @@ class FarmItemTest {
 
     @Test
     void scanRouteStartsAndEndsAtHome() {
-        Point2D.Double home = new Point2D.Double(150, 470);
-        List<Point2D.Double> route = FarmMap.scanRoute(home);
+        Point2D home = new Point2D(150, 470);
+        List<Point2D> route = FarmMap.scanRoute(home);
         assertEquals(home, route.get(0));
         assertEquals(home, route.get(route.size() - 1));
     }
@@ -119,6 +121,49 @@ class FarmItemTest {
         String[] values = {"Cow", "3", "1", "2", "4", "5", "6"};
         assertEquals(new FarmProperties("Cow", new BigDecimal("3"), 1, 2, 4, 5, 6), FarmProperties.parse(values));
         assertThrows(IllegalArgumentException.class, () -> FarmProperties.parse(new String[] {"Cow"}));
+    }
+
+    @Test
+    void visitFlightReachesTargetAndReturnsHome() {
+        ItemContainer farm = FarmDashboard.sampleFarm();
+        FarmEditor editor = new FarmEditor(farm);
+        FarmMap map = new FarmMap(farm, editor, false);
+        FarmItem tractor = farm.children().get(1).children().get(0);
+        assertEquals(null, map.startVisit(tractor));
+        assertTrue(map.isFlying());
+        assertEquals(new Point2D(500, 115), map.route().get(1));
+        map.advanceFlight(0.5); // 240 px along the first leg
+        assertTrue(map.isFlying());
+        map.advanceFlight(60);
+        assertEquals(false, map.isFlying());
+        assertEquals(map.droneHome(), map.dronePosition());
+        assertEquals("Flight complete. Drone at home.", map.status());
+    }
+
+    @Test
+    void changingTheFarmCancelsAFlight() {
+        ItemContainer farm = FarmDashboard.sampleFarm();
+        FarmEditor editor = new FarmEditor(farm);
+        FarmMap map = new FarmMap(farm, editor, false);
+        map.startScan();
+        editor.update(farm.children().get(0), price("Big Barn", "1"));
+        assertEquals(false, map.isFlying());
+        assertEquals("Flight canceled because the farm changed", map.status());
+    }
+
+    @Test
+    void editorKeepsTreeItemsInStepWithTheFarm() {
+        ItemContainer farm = FarmDashboard.sampleFarm();
+        FarmEditor editor = new FarmEditor(farm);
+        ItemContainer barn = (ItemContainer) farm.children().get(0);
+        FarmItem hay = new Item(price("Hay", "10"));
+        TreeItem<FarmItem> node = editor.add(barn, hay);
+        assertSame(hay, node.getValue());
+        assertSame(editor.nodeOf(barn), node.getParent());
+        editor.remove(barn);
+        assertEquals(null, editor.nodeOf(hay));
+        assertEquals(3, editor.root().getChildren().size());
+        assertThrows(IllegalArgumentException.class, () -> editor.remove(farm));
     }
 
     private static FarmProperties price(String name, String price) {

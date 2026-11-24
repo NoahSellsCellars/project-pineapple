@@ -2,7 +2,7 @@
 
 AgriFlight is a desktop dashboard for laying out a farm. You add buildings, rooms, livestock, equipment and crops. Each one has a location, dimensions and a price. The dashboard draws the farm on an 800 × 600 map and animates a drone flying over it.
 
-The project is written in Java with Swing. It implements two design patterns:
+The project is written in Java with JavaFX. It implements two design patterns:
 
 - **Singleton**: only one dashboard window can exist.
 - **Composite**: items and item-containers are managed through one common interface.
@@ -17,7 +17,7 @@ GitHub: <https://github.com/NoahSellsCellars/project-pineapple>
 - [Apache Maven](https://maven.apache.org/) 3.6 or newer, to build and test the project.
 - A desktop environment that can open windows. The app won't run on a headless server.
 
-The app itself has no runtime dependencies, because Swing ships with the JDK. JUnit is used only for the tests.
+Maven downloads JavaFX (version 21) for you, so you don't need to install it separately. JUnit is used only for the tests.
 
 Check your versions with:
 
@@ -33,9 +33,15 @@ mvn -version
 
 The project uses the standard Maven layout. The main class is `com.agriflight.FarmDashboard`.
 
-### Option 1: build with Maven, then run the jar
+### Option 1: run with Maven
 
 From the repository root:
+
+```bash
+mvn javafx:run
+```
+
+### Option 2: build a jar, then run it
 
 ```bash
 mvn package
@@ -45,21 +51,11 @@ mvn package
 java -jar target/agriflight-1.0.0.jar
 ```
 
-`mvn package` compiles the code, runs the unit tests and builds the jar in `target/`.
-
-### Option 2: compile with `javac` (no Maven)
-
-```bash
-javac -d out src/main/java/com/agriflight/*.java
-```
-
-```bash
-java -cp out com.agriflight.FarmDashboard
-```
+`mvn package` compiles the code, runs the unit tests and builds a jar in `target/` that includes JavaFX for your operating system. Build it on the computer you'll run it on.
 
 ### Option 3: from an IDE
 
-Open the project folder in IntelliJ IDEA, Eclipse or VS Code. It's detected as a Maven project from `pom.xml`. Then run the `main` method in `FarmDashboard`.
+Open the project folder in IntelliJ IDEA, Eclipse or VS Code. It's detected as a Maven project from `pom.xml`. Then run the `main` method in `FarmDashboard`, or the Maven goal `javafx:run`.
 
 ### Running the tests
 
@@ -67,7 +63,7 @@ Open the project folder in IntelliJ IDEA, Eclipse or VS Code. It's detected as a
 mvn test
 ```
 
-The tests in `FarmItemTest` cover the Singleton, the Composite classes (including `totalPrice()`), property validation, the preloaded test scenario and the drone's scan route. `FarmApiServerTest` starts the drone API on a free port and checks every endpoint.
+The tests in `FarmItemTest` cover the Singleton, the Composite classes (including `totalPrice()`), property validation, the preloaded test scenario, keeping the tree in step with the farm, and the drone's flights. The tests don't start the JavaFX toolkit, so they run without a display. `FarmApiServerTest` starts the drone API on a free port and checks every endpoint.
 
 ## Using the dashboard
 
@@ -218,7 +214,8 @@ An error status raises `urllib.error.HTTPError`. Its `.read()` returns the JSON 
 - `FarmDashboard` is `final` and its constructor is `private`, so no other class can create one.
 - A single eager instance is held in `private static final FarmDashboard INSTANCE`.
 - `FarmDashboard.getInstance()` is the only way to get the dashboard, and it always returns that same instance.
-- `getInstance().open()` creates the `JFrame` the first time it's called. Later calls reuse the same window and bring it to the front. All window work runs on the Swing event dispatch thread.
+- `getInstance().open()` creates the JavaFX `Stage` the first time it's called. Later calls reuse the same window and bring it to the front. All window work runs on the JavaFX application thread.
+- JavaFX creates its `Application` object itself through a public constructor, so the singleton can't be that class. `FarmApp extends Application` is a two-line launcher whose `start(...)` calls `FarmDashboard.getInstance().open()`. `FarmDashboard.main` starts JavaFX with `Application.launch(FarmApp.class)`.
 
 ### Composite: `FarmItem`, `Item`, `ItemContainer`
 
@@ -236,19 +233,20 @@ The tree view, the change commands and the map rendering all work through the `F
 
 ### Visualization and animation: `FarmMap`
 
-- `FarmMap` is an 800 × 600 `JPanel` that paints the composite tree recursively.
-- It listens for changes to the tree model and repaints whenever the farm changes.
-- A Swing `Timer` moves the drone along a list of waypoints at a constant speed. A visit flies home → target center → home. A scan flies home, sweeps the farm in rows 50 px apart, then returns home.
+- `FarmMap` is an 800 × 600 JavaFX `Canvas` that draws the composite tree recursively.
+- `FarmEditor` notifies it after every change, and it redraws whenever the farm changes.
+- A JavaFX `AnimationTimer` moves the drone along a list of waypoints at a constant speed. A visit flies home → target center → home. A scan flies home, sweeps the farm in rows 50 px apart, then returns home.
 
 ## Project structure
 
 ```
 project-pineapple/
-├── pom.xml                                  # Maven build (Java 17, JUnit 5+ tests, runnable jar)
+├── pom.xml                                  # Maven build (Java 17, JavaFX 21, JUnit tests, runnable jar)
 ├── README.md
 └── src/
     ├── main/java/com/agriflight/
     │   ├── FarmDashboard.java               # Singleton: the dashboard window and controls, entry point
+    │   ├── FarmApp.java                     # JavaFX Application that opens the singleton dashboard
     │   ├── FarmMap.java                     # 800 × 600 map rendering and drone animation
     │   ├── FarmItem.java                    # Composite: component interface
     │   ├── FarmElement.java                 # Shared base class for leaf and composite

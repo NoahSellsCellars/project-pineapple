@@ -1,6 +1,5 @@
 package com.agriflight;
 
-import java.awt.geom.Point2D;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.math.BigDecimal;
@@ -14,11 +13,13 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.FutureTask;
 
-import javax.swing.SwingUtilities;
+import javafx.geometry.Point2D;
 
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
@@ -26,8 +27,8 @@ import com.sun.net.httpserver.HttpServer;
 /**
  * A local HTTP + JSON API so other programs on this computer, such as the physical drone's
  * controller, can read and change the farm and the drone. It listens on 127.0.0.1 only.
- * Every request runs on the Swing event dispatch thread, so API changes and dashboard
- * changes never race, and the tree and map update immediately.
+ * Every request runs on the user-interface thread (the JavaFX application thread in the app),
+ * so API changes and dashboard changes never race, and the tree and map update immediately.
  */
 final class FarmApiServer {
     static final int DEFAULT_PORT = 8080;
@@ -38,15 +39,18 @@ final class FarmApiServer {
 
     private final FarmEditor editor;
     private final FarmMap map;
+    private final Executor uiThread;
     private final Map<FarmItem, Integer> ids = new IdentityHashMap<>();
     private final Map<Integer, FarmItem> elements = new HashMap<>();
     private int nextId = 1;
     private HttpServer server;
     private ExecutorService executor;
 
-    FarmApiServer(FarmEditor editor, FarmMap map) {
+    /** @param uiThread runs each request's work on the UI thread; the app passes {@code Platform::runLater}. */
+    FarmApiServer(FarmEditor editor, FarmMap map, Executor uiThread) {
         this.editor = editor;
         this.map = map;
+        this.uiThread = uiThread;
     }
 
     /** Starts listening on 127.0.0.1 and returns the port (pass 0 to pick any free port). */
@@ -87,7 +91,7 @@ final class FarmApiServer {
             Object body = readBody(exchange);
             String method = exchange.getRequestMethod();
             String path = exchange.getRequestURI().getPath();
-            response = onEventThread(() -> route(method, path, body));
+            response = onUiThread(() -> route(method, path, body));
         } catch (ApiException exception) {
             response = new Response(exception.status, Map.of("error", exception.getMessage()));
         } catch (Exception exception) {
@@ -126,20 +130,17 @@ final class FarmApiServer {
         exchange.close();
     }
 
-    private static <T> T onEventThread(Callable<T> work) throws Exception {
-        AtomicReference<T> result = new AtomicReference<>();
-        AtomicReference<Exception> failure = new AtomicReference<>();
-        SwingUtilities.invokeAndWait(() -> {
-            try {
-                result.set(work.call());
-            } catch (Exception exception) {
-                failure.set(exception);
+    private <T> T onUiThread(Callable<T> work) throws Exception {
+        FutureTask<T> task = new FutureTask<>(work);
+        uiThread.execute(task);
+        try {
+            return task.get();
+        } catch (ExecutionException exception) {
+            if (exception.getCause() instanceof Exception cause) {
+                throw cause;
             }
-        });
-        if (failure.get() != null) {
-            throw failure.get();
+            throw exception;
         }
-        return result.get();
     }
 
     private Response route(String method, String path, Object body) {
@@ -264,7 +265,7 @@ final class FarmApiServer {
         Map<String, Object> fields = object(body);
         double x = number(fields, "x");
         double y = number(fields, "y");
-        map.setReportedPosition(new Point2D.Double(x, y));
+        map.setReportedPosition(new Point2D(x, y));
         return ok(drone());
     }
 
@@ -391,7 +392,7 @@ final class FarmApiServer {
         json.put("position", point(map.dronePosition()));
         json.put("reportedPosition", point(map.reportedPosition()));
         List<Object> route = new ArrayList<>();
-        for (Point2D.Double waypoint : map.route()) {
+        for (Point2D waypoint : map.route()) {
             route.add(point(waypoint));
         }
         json.put("route", route);
@@ -399,13 +400,13 @@ final class FarmApiServer {
         return json;
     }
 
-    private static Map<String, Object> point(Point2D.Double point) {
+    private static Map<String, Object> point(Point2D point) {
         if (point == null) {
             return null;
         }
         Map<String, Object> json = new LinkedHashMap<>();
-        json.put("x", point.x);
-        json.put("y", point.y);
+        json.put("x", point.getX());
+        json.put("y", point.getY());
         return json;
     }
 

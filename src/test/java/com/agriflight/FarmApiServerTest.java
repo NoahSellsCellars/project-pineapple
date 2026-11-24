@@ -13,11 +13,6 @@ import java.net.http.HttpResponse;
 import java.util.List;
 import java.util.Map;
 
-import javax.swing.JLabel;
-import javax.swing.JTree;
-import javax.swing.SwingUtilities;
-import javax.swing.tree.DefaultTreeModel;
-
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -43,12 +38,11 @@ class FarmApiServerTest {
 
     @BeforeEach
     void startServer() throws Exception {
-        SwingUtilities.invokeAndWait(() -> {
-            ItemContainer farm = FarmDashboard.sampleFarm();
-            DefaultTreeModel model = new DefaultTreeModel(FarmDashboard.treeNode(farm));
-            editor = new FarmEditor(farm, model);
-            server = new FarmApiServer(editor, new FarmMap(farm, model, new JTree(model), new JLabel()));
-        });
+        // The tests don't start the JavaFX toolkit: the map runs without drawing, and requests run
+        // directly on the server's single request thread instead of the JavaFX application thread.
+        ItemContainer farm = FarmDashboard.sampleFarm();
+        editor = new FarmEditor(farm);
+        server = new FarmApiServer(editor, new FarmMap(farm, editor, false), Runnable::run);
         base = "http://127.0.0.1:" + server.start(0) + "/api";
     }
 
@@ -124,7 +118,7 @@ class FarmApiServerTest {
         assertEquals(200, renamed.status());
         assertEquals("Bessie", renamed.object().get("name"));
         assertNumber("75", renamed.object().get("x"));
-        assertEquals("Bessie", editor.nodeOf(editor.farm().children().get(0).children().get(0).children().get(0)).toString());
+        assertEquals("Bessie", editor.nodeOf(editor.farm().children().get(0).children().get(0).children().get(0)).getValue().toString());
     }
 
     @Test
